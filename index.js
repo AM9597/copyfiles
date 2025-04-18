@@ -1,7 +1,7 @@
 'use strict';
 var path = require('path');
 var fs = require('fs');
-var glob = require('glob');
+const fg = require('fast-glob');
 var mkdirp = require('mkdirp');
 var untildify = require('untildify');
 var through = require('through2').obj;
@@ -95,15 +95,17 @@ function copyFiles(args, config, callback) {
   toStream(input.map(function(srcP) {return srcP.startsWith('~') ? untildify(srcP) : srcP;}))
   .pipe(through(function (pathName, _, next) {
     var self = this;
-    glob(pathName, globOpts, function (err, paths) {
-      if (err) {
-        return next(err);
-      }
-      paths.forEach(function (unglobbedPath) {
-        debug(`unglobed path: ${unglobbedPath}`);
-        self.push(unglobbedPath);
+    fg(pathName, globOpts)
+    .then(paths => {
+      // Iterate over the unglobbed paths
+      paths.forEach(unglobbedPath => {
+        debug(`unglobbed path: ${unglobbedPath}`);
+        self.push(unglobbedPath); // Assuming self.push is some kind of stream or data handler
       });
-      next();
+      next(); // Calling the next function when done
+    })
+    .catch(err => {
+      next(err); // Handle errors if the glob fails
     });
   }))
   .on('error', callback)
